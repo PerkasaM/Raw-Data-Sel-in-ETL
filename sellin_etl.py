@@ -17,10 +17,10 @@ import pandas as pd
 # CONFIG — update bagian ini setiap bulan
 # ============================================================
 
-PATH_RAW_OLD    = r"C:\Users\USER\Documents\MEVAL\Raw data\Raw Data Sell IN - 2023-2025 (C0526) Rev 2.xlsx"
+PATH_RAW_OLD    = r"C:\Users\USER\Documents\MEVAL\Raw data\Raw Data Sell IN - 2023-2026 (C0626) Rev 2.xlsx"
 PATH_TEMPLATE   = r"C:\Users\USER\Documents\MEVAL\TEMPLATE\2026\TEMPLATE_SELL_IN_SAP 040426.xlsx"
-PATH_SAP        = r"C:\Users\USER\Documents\SAP\SAP GUI\export customermasterlist 30062026.XLSX"
-PATH_MTD_YTD    = r"C:\Users\USER\Documents\MEVAL\MTD YTD\2026\C06\MTD YTD REPORT C06 30.06.2026 FINAL.xlsx"
+PATH_SAP        = r"C:\Users\USER\Documents\SAP\SAP GUI\export customermasterlist 15072026.XLSX"
+PATH_MTD_YTD    = r"C:\Users\USER\Documents\MEVAL\MTD YTD\2026\C07\MTD YTD REPORT C07 20.07.2026.xlsx"
 PATH_SDO_UPDATE = r"C:\Users\USER\Documents\MEVAL\SDO\SDO UPDATE C06_ALL_AREA.xlsx"
 PATH_MD_SKU     = r"C:\Users\USER\Documents\MEVAL\Master Data\skuu6.xlsx"
 PATH_SPVRSM     = r"C:\Users\USER\Documents\MEVAL\Master Data\spv rsm.xlsx"
@@ -30,10 +30,11 @@ PATH_GROUP      = r"C:\Users\USER\Documents\MEVAL\Master Data\Group.xlsx"
 PATH_SWM        = r"C:\Users\USER\Documents\MEVAL\Master Data\SWM_grouping_.xlsx"
 PATH_PRICELIST  = r"C:\Users\USER\Documents\MEVAL\Master Data\PRICELIST MEVAL 01042026 INT.xlsx"
 PATH_SDO_AKTIF  = r"C:\Users\USER\Documents\MEVAL\Generate\selllin\data\SDO aktif.xlsx"
+PATH_PRODUCT    = r"C:\Users\USER\Documents\MEVAL\Master Data\Product Data.xlsx"
 
 # Info cycle bulan ini — ganti setiap bulan
-CYCLE       = "C06"
-DUMMY_CYCLE = "C0626"
+CYCLE       = "C07"
+DUMMY_CYCLE = "C0726"
 MTD_SHEET   = "SAP CUMULATIVE"
 
 # File output
@@ -729,6 +730,39 @@ def update_status_sdo(df_final, sdo_aktif):
     return df_final
 
 
+def update_product_focus_category(df_final, product_data):
+    """
+    Tambah / update kolom PRODUCT FOCUS dan CATEGORY di df_final
+    berdasarkan lookup Internal Code ke Product_Data.xlsx.
+    Kolom source: Internal Code, CATEGORY, PRODUCT FOCUS.
+    - Internal Code yang tidak ada di product_data → kolom diisi NaN (tidak diubah)
+    - Selalu overwrite dengan data terbaru dari product_data
+    """
+    print("Updating PRODUCT FOCUS & CATEGORY dari Product Data...")
+
+    prod = product_data[['Internal Code', 'CATEGORY', 'PRODUCT FOCUS']].copy()
+    prod['Internal Code'] = prod['Internal Code'].astype(str).str.strip().str.upper()
+    prod = prod.dropna(subset=['Internal Code']).drop_duplicates('Internal Code', keep='last')
+
+    df_final['Internal Code'] = df_final['Internal Code'].astype(str).str.strip().str.upper()
+
+    # Merge — keep all rows, kolom baru muncul dengan suffix _pd jika sudah ada
+    df_final = df_final.merge(
+        prod.rename(columns={'CATEGORY': 'CATEGORY_pd', 'PRODUCT FOCUS': 'PRODUCT FOCUS_pd'}),
+        on='Internal Code', how='left'
+    )
+
+    # Assign ke kolom final (overwrite jika sudah ada, buat baru jika belum)
+    df_final['CATEGORY']      = df_final['CATEGORY_pd']
+    df_final['PRODUCT FOCUS'] = df_final['PRODUCT FOCUS_pd']
+    df_final = df_final.drop(columns=['CATEGORY_pd', 'PRODUCT FOCUS_pd'])
+
+    n_filled = df_final['PRODUCT FOCUS'].notna().sum()
+    n_empty  = df_final['PRODUCT FOCUS'].isna().sum()
+    print(f"  {n_filled} baris terisi, {n_empty} baris Internal Code tidak ditemukan di product data.")
+    return df_final
+
+
 # ============================================================
 # MAIN
 # ============================================================
@@ -756,6 +790,9 @@ def main():
 
     print("Loading SDO Aktif...")
     sdo_aktif = pd.read_excel(PATH_SDO_AKTIF)
+
+    print("Loading Product Data...")
+    product_data = pd.read_excel(PATH_PRODUCT)
 
     print("Loading Group...")
     md_group = pd.read_excel(PATH_GROUP)
@@ -842,7 +879,10 @@ def main():
     if 'SUBPG' in df_final.columns:
         df_final['SUBPG'] = df_final['SUBPG'].astype(str).str.upper().replace('NAN', None)
     if 'PG' in df_final.columns:
-        df_final['PG'] = df_final['PG'].astype(str).str.upper().replace('NAN',None) 
+        df_final['PG'] = df_final['PG'].astype(str).str.upper().replace('NAN',None)
+
+    # Tambah kolom PRODUCT FOCUS dan CATEGORY dari Product Data (paling akhir)
+    df_final = update_product_focus_category(df_final, product_data)
 
     # 9. Simpan
     df_final.to_excel(OUTPUT_FINAL, index=False)
