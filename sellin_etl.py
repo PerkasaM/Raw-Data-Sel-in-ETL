@@ -540,7 +540,7 @@ def update_desc_brand(raw_old, ms_dc):
 
 
 def update_customer_name_mt(df_final, md_group):
-    print("Updating Customer Name (MODERN TRADE only)...")
+    print("Updating Customer Name (semua chanel)...")
     md_group_join = md_group.rename(columns={
         'CUSTOMER CODE1': 'Customer Code',
         'CUSTOMER NAME':  'Customer Name New'
@@ -548,9 +548,8 @@ def update_customer_name_mt(df_final, md_group):
     md_group_join['Customer Code'] = md_group_join['Customer Code'].astype(str).apply(normalize_customer_code)
     name_map = md_group_join.drop_duplicates('Customer Code').set_index('Customer Code')['Customer Name New']
 
-    mt_mask     = df_final['Chanel'].str.upper().str.strip() == 'MODERN TRADE'
     in_group    = df_final['Customer Code'].isin(name_map.index)
-    update_mask = mt_mask & in_group
+    update_mask = in_group   # semua chanel, tidak dibatasi MODERN TRADE
 
     new_names = df_final.loc[update_mask, 'Customer Code'].map(name_map)
     changed   = (new_names.values != df_final.loc[update_mask, 'Customer Name'].values)
@@ -559,7 +558,7 @@ def update_customer_name_mt(df_final, md_group):
     actual_update[update_mask] = changed
     df_final.loc[actual_update, 'Customer Name'] = df_final.loc[actual_update, 'Customer Code'].map(name_map)
 
-    print(f"  {actual_update.sum()} baris Customer Name diupdate (MT dengan perubahan nama).")
+    print(f"  {actual_update.sum()} baris Customer Name diupdate (semua chanel dengan perubahan nama).")
     return df_final
 
 
