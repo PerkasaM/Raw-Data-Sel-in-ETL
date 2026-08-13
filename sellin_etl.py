@@ -17,11 +17,11 @@ import pandas as pd
 # CONFIG — update bagian ini setiap bulan
 # ============================================================
 
-PATH_RAW_OLD    = r"C:\Users\USER\Documents\MEVAL\Raw data\Raw Data Sell IN - 2023-2026 (C0626) Rev 1.xlsx"
+PATH_RAW_OLD    = r"C:\Users\USER\Documents\MEVAL\Raw data\Raw Data Sell IN - 2023-2026 (C0626) Rev 2.xlsx"
 PATH_TEMPLATE   = r"C:\Users\USER\Documents\MEVAL\TEMPLATE\2026\TEMPLATE_SELL_IN_SAP 040426.xlsx"
-PATH_SAP        = r"C:\Users\USER\Documents\SAP\SAP GUI\export customermasterlist 27072026.XLSX"
-PATH_MTD_YTD    = r"C:\Users\USER\Documents\MEVAL\MTD YTD\2026\C07\MTD YTD REPORT C07 27.07.2026.xlsx"
-PATH_SDO_UPDATE = r"C:\Users\USER\Documents\MEVAL\SDO\SDO UPDATE C06_ALL_AREA.xlsx"
+PATH_SAP        = r"C:\Users\USER\Documents\SAP\SAP GUI\export customermasterlist 31072026.XLSX"
+PATH_MTD_YTD    = r"C:\Users\USER\Documents\MEVAL\MTD YTD\2026\C07\MTD YTD REPORT C07 31.07.2026 FINAL.xlsx"
+PATH_SDO_UPDATE = r"C:\Users\USER\Documents\MEVAL\SDO\SDO UPDATE C07_ALL_AREA.xlsx"
 PATH_MD_SKU     = r"C:\Users\USER\Documents\MEVAL\Master Data\skuu6.xlsx"
 PATH_SPVRSM     = r"C:\Users\USER\Documents\MEVAL\Master Data\spv rsm.xlsx"
 PATH_MS_DC      = r"C:\Users\USER\Documents\MEVAL\Master Data\ms dc.xlsx"
@@ -33,8 +33,8 @@ PATH_SDO_AKTIF  = r"C:\Users\USER\Documents\MEVAL\Generate\selllin\data\SDO akti
 PATH_PRODUCT    = r"C:\Users\USER\Documents\MEVAL\Master Data\Product Data.xlsx"
 
 # Info cycle bulan ini — ganti setiap bulan
-CYCLE       = "C07"
-DUMMY_CYCLE = "C0726"
+CYCLE       = "C08"
+DUMMY_CYCLE = "C0826"
 MTD_SHEET   = "SAP CUMULATIVE"
 
 # File output
@@ -190,7 +190,7 @@ def load_master_data():
     print("Loading master data...")
 
     cols_toko = ['Customer Code', 'Customer Name', 'Address', 'City',
-                 'Region', 'Reg2', 'type', 'TypeDummy', 'Chanel']
+                 'Provinsi', 'Region', 'Reg2', 'type', 'TypeDummy', 'Chanel']
     md_toko = pd.read_excel(PATH_TEMPLATE, sheet_name='MD_TOKO', usecols=cols_toko)
     md_toko['Customer Code'] = md_toko['Customer Code'].astype(str).apply(normalize_customer_code)
 
@@ -269,7 +269,7 @@ def update_md_toko(md_toko, df_mtd, df_unique, sap, spvrsm):
     new_rows['type'] = new_rows['type'].astype(str)
 
     cols_order = ['Customer Code', 'Customer Name', 'Address', 'City',
-                  'Region', 'Reg2', 'type', 'TypeDummy', 'Chanel']
+                  'Provinsi', 'Region', 'Reg2', 'type', 'TypeDummy', 'Chanel']
     for col in cols_order:
         if col not in new_rows.columns:
             new_rows[col] = None
@@ -457,7 +457,7 @@ def process_new_month(md_toko, md_sdo, md_sdo_updated, md_sku, spvrsm,
 
     # --- Reorder kolom sesuai raw_old ---
     col_order = [
-        'Customer Code', 'Customer Name', 'Address', 'City', 'Region', 'Reg2',
+        'Customer Code', 'Customer Name', 'Address', 'City', 'Provinsi', 'Region', 'Reg2',
         'Type', 'TypeDummy', 'Chanel', 'Sales Group', 'PLANT', 'STORELOC',
         'SDO Name', 'SDO Update', 'Status SDO',
         'SKU Code', 'Internal Code', 'Desc', 'Brand', 'PG', 'SUBPG',
