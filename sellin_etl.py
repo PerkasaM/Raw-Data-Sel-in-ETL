@@ -20,7 +20,7 @@ import pandas as pd
 PATH_RAW_OLD    = r"C:\Users\USER\Documents\MEVAL\Raw data\Raw Data Sell IN - 2023-2026 (C0726) Rev 1.xlsx"
 PATH_TEMPLATE   = r"C:\Users\USER\Documents\MEVAL\TEMPLATE\2026\TEMPLATE_SELL_IN_SAP 040426.xlsx"
 PATH_SAP        = r"C:\Users\USER\Documents\SAP\SAP GUI\export customermasterlist 26082026.XLSX"
-PATH_MTD_YTD    = r"C:\Users\USER\Documents\MEVAL\MTD YTD\2026\C08\MTD YTD REPORT C08 22.08.2026.xlsx"
+PATH_MTD_YTD    = r"C:\Users\USER\Documents\MEVAL\MTD YTD\2026\C08\MTD YTD REPORT C08 27.08.2026.xlsx"
 PATH_SDO_UPDATE = r"C:\Users\USER\Documents\MEVAL\SDO\SDO UPDATE C07_ALL_AREA.xlsx"
 PATH_MD_SKU     = r"C:\Users\USER\Documents\MEVAL\Master Data\skuu6.xlsx"
 PATH_SPVRSM     = r"C:\Users\USER\Documents\MEVAL\Master Data\spv rsm.xlsx"
@@ -762,61 +762,52 @@ def update_product_focus_category(df_final, product_data):
     return df_final
 
 
-def check_chanel_mismatch(df_mtd, md_toko):
+def check_chanel_mismatch(raw_new, md_toko):
     """
-    Bandingkan CUST TYPE dari MTD YTD dengan Chanel di MD_TOKO
-    per Customer Code. Tampilkan hanya yang berbeda.
-
-    Normalisasi sebelum bandingkan:
-      'PROJECT'       → 'PROJECTS'
-      'MDI E-COMMERCE'→ 'DIRECT MDI'
+    Bandingkan kolom Chanel di raw_new (hasil process_new_month)
+    dengan Chanel di MD_TOKO per Customer Code.
+    Tampilkan hanya yang tidak sesuai.
 
     Return:
-        DataFrame berisi Customer Code yang chanelnya tidak sesuai,
-        dengan kolom: Customer Code, Customer Name, Chanel_MTD, Chanel_MD_TOKO
+        DataFrame berisi Customer Code yang chanelnya berbeda antara
+        raw_new dan MD_TOKO, dengan kolom:
+        Customer Code, Customer Name, Chanel raw_new, Chanel MD_TOKO
     """
-    # Normalisasi CUST TYPE dari MTD
-    NORM_MTD = {
-        'PROJECT':        'PROJECTS',
-        'MDI E-COMMERCE': 'DIRECT MDI',
-    }
-
-    mtd_unique = (
-        df_mtd[['CUSTOMER#', 'NAME1', 'CUST TYPE']]
-        .drop_duplicates('CUSTOMER#')
-        .rename(columns={'CUSTOMER#': 'Customer Code', 'NAME1': 'Customer Name MTD', 'CUST TYPE': 'Chanel_MTD'})
+    # Ambil Chanel dari raw_new — satu baris per Customer Code
+    raw_unique = (
+        raw_new[['Customer Code', 'Customer Name', 'Chanel']]
+        .drop_duplicates('Customer Code')
+        .rename(columns={'Chanel': 'Chanel_raw_new', 'Customer Name': 'Nama raw_new'})
     )
-    mtd_unique['Customer Code'] = mtd_unique['Customer Code'].astype(str).apply(normalize_customer_code)
-    mtd_unique['Chanel_MTD']    = mtd_unique['Chanel_MTD'].astype(str).str.strip().str.upper()
-    mtd_unique['Chanel_MTD']    = mtd_unique['Chanel_MTD'].replace(NORM_MTD)
+    raw_unique['Customer Code']   = raw_unique['Customer Code'].astype(str).apply(normalize_customer_code)
+    raw_unique['Chanel_raw_new']  = raw_unique['Chanel_raw_new'].astype(str).str.strip().str.upper()
 
     # Ambil Chanel dari MD_TOKO
     toko = (
         md_toko[['Customer Code', 'Customer Name', 'Chanel']]
         .drop_duplicates('Customer Code')
-        .rename(columns={'Chanel': 'Chanel_MD_TOKO'})
+        .rename(columns={'Chanel': 'Chanel_MD_TOKO', 'Customer Name': 'Nama MD_TOKO'})
     )
     toko['Chanel_MD_TOKO'] = toko['Chanel_MD_TOKO'].astype(str).str.strip().str.upper()
 
     # Merge
-    merged = pd.merge(mtd_unique, toko, on='Customer Code', how='left')
-
-    # Filter: hanya yang berbeda (atau yang belum ada di MD_TOKO)
-    mismatch = merged[
-        merged['Chanel_MTD'] != merged['Chanel_MD_TOKO']
-    ].copy()
+    merged = pd.merge(raw_unique, toko, on='Customer Code', how='left')
 
     # Tandai yang belum ada di MD_TOKO
-    mismatch['Chanel_MD_TOKO'] = mismatch['Chanel_MD_TOKO'].fillna('(BELUM ADA DI MD_TOKO)')
+    merged['Chanel_MD_TOKO'] = merged['Chanel_MD_TOKO'].fillna('(BELUM ADA DI MD_TOKO)')
+
+    # Filter hanya yang berbeda
+    mismatch = merged[
+        merged['Chanel_raw_new'] != merged['Chanel_MD_TOKO']
+    ].copy().reset_index(drop=True)
 
     mismatch = mismatch[[
-        'Customer Code', 'Customer Name MTD', 'Customer Name',
-        'Chanel_MTD', 'Chanel_MD_TOKO'
-    ]].reset_index(drop=True)
-
+        'Customer Code', 'Nama raw_new', 'Nama MD_TOKO',
+        'Chanel_raw_new', 'Chanel_MD_TOKO'
+    ]]
     mismatch.columns = [
-        'Customer Code', 'Nama di MTD', 'Nama di MD_TOKO',
-        'Chanel MTD YTD', 'Chanel MD_TOKO'
+        'Customer Code', 'Nama di raw_new', 'Nama di MD_TOKO',
+        'Chanel raw_new', 'Chanel MD_TOKO'
     ]
 
     return mismatch
@@ -888,8 +879,8 @@ def main():
     print(f"\nraw_new disimpan → {OUTPUT_RAW_NEW}")
 
     # QC: bandingkan Chanel MTD YTD vs MD_TOKO, simpan ke sheet kedua
-    print("Checking chanel mismatch MTD vs MD_TOKO...")
-    mismatch = check_chanel_mismatch(df_mtd, md_toko)
+    print("Checking chanel mismatch raw_new vs MD_TOKO...")
+    mismatch = check_chanel_mismatch(raw_new, md_toko)
     if mismatch.empty:
         print("  Semua chanel sesuai, tidak ada mismatch.")
     else:
@@ -953,6 +944,13 @@ def main():
 
     # Tambah kolom PRODUCT FOCUS dan CATEGORY dari Product Data (paling akhir)
     df_final = update_product_focus_category(df_final, product_data)
+
+    # Hapus baris Chanel = DIRECT MDI sebelum simpan
+    before = len(df_final)
+    df_final = df_final[
+        df_final['Chanel'].astype(str).str.upper().str.strip() != 'DIRECT MDI'
+    ].reset_index(drop=True)
+    print(f"Hapus {before - len(df_final)} baris Chanel DIRECT MDI.")
 
     # 9. Simpan
     df_final.to_excel(OUTPUT_FINAL, index=False)
